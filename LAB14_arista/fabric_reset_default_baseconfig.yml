@@ -1,0 +1,15 @@
+---
+- name: Return Arista Network to Default
+  hosts: jinja2_spine
+  tasks:
+    - name: Delete Configuration
+      eos_config:
+        lines:
+          - default interface ethernet 1-8
+          - no router bgp
+          - no vlan 2-4090
+          - no ip name-server
+          - no ip prefix-list loopback
+          - no route-map loopback
+          - no interface Vxlan1
+        # src_format: set

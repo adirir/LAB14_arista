@@ -1,0 +1,40 @@
+---
+  hostname: leaf01
+  loopback0: 10.100.1.251
+  loopback1: 10.100.1.21
+  router_id: 10.100.1.251
+  mgmt_ip: 10.199.199.21
+  mlag_ip: 192.0.0.1
+  mlag_peer: 192.0.0.2
+
+
+  interface_eth:
+    e1:
+      ip: 172.31.1.1
+      mask: 31
+      mac: 5000.0005.0001
+
+    e2:
+      ip: 172.31.1.7
+      mask: 31
+      mac: 5000.0005.0002
+
+  vlans: 
+    vlan:
+       vlan_id: 3600
+       vlan_id: 4094
+
+  vrfs:
+    vrf instance: 
+        vrf_id: ASU-3600
+        desc: ASU_PROD2
+  svis:
+    interface vlan:
+        svi_vlan: 3600
+        vrf_svi: ASU-3600
+        description: ASU_PROD
+        svi_ip: 100.100.100.2
+        mask: 24
+        helper_ip: 20.20.20.20
+        vip: 100.100.100.1
+

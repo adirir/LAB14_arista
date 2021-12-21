@@ -1,0 +1,178 @@
+aaa authorization exec default local
+!
+no aaa root
+!
+username admin privilege 15 role network-admin secret arista
+!
+hostname {{hostname}}
+!
+vrf instance MGMT
+!
+ip routing vrf ASU-3600
+!
+ip routing
+!
+interface Management1
+   vrf MGMT
+   ip address {{ mgmt_ip }}/24
+!
+ip routing
+no ip routing vrf MGMT
+!
+ip route vrf MGMT 0.0.0.0/0 10.199.199.1
+!
+vlan 4094
+name 192.0.0.0/30_MLAG_Peering
+trunk group MLAGPEER
+!
+interface Vlan4094
+description MLAG Peering
+mtu 9100
+no autostate
+no shutdown
+ip address {{ mlag_ip }}/30
+!
+interface Port-Channel155
+description -> leaf02 (MLAG Peer Link)
+switchport mode trunk
+switchport trunk group MLAGPEER
+switchport
+no shutdown
+port-channel lacp fallback individual
+port-channel lacp fallback timeout 3
+!
+interface e3-4
+channel-group 155 mode active
+!
+spanning-tree vlan-id 1-4093 priority 0
+!
+no spanning-tree vlan-id 4094 
+!
+router ospf 1
+router-id {{router_id}}
+!
+{% for interface, data in interface_eth.items() %}
+interface {{ interface }}
+no switchport
+mtu 9000
+mac-address {{ data['mac'] }}
+ip pim sparse-mode
+ip address {{ data['ip'] }}/{{ data['mask'] }} 
+no shutdown
+bfd interval 300 min-rx 300 multiplier 3
+ip ospf neighbor bfd
+ip ospf network point-to-point
+ip ospf area 0
+{% endfor %}
+!
+{% for vlan, name in vlans.items() %}
+vrf {{ name['vlan_id'] }}
+{% endfor %}
+!
+!
+{% for vrf, name in vrfs.items() %}
+vrf instance {{ name['vrf_id'] }}
+ description {{ name['desc'] }}
+{% endfor %}
+!
+{% for svi, name in svis.items() %}
+interface vlan {{ name ['svi_vlan']}}
+vrf {{ name['vrf_svi'] }}
+description {{ name['description'] }}
+ip address {{ name['svi_ip'] }}/{{name['mask']}}
+ip helper-address {{ name['helper_ip'] }}
+ip virtual-router address {{ name['vip'] }}
+no shutdown
+{% endfor %}
+!
+!
+  interface Vxlan1
+	     vxlan source-interface Loopback1
+	     vxlan virtual-router encapsulation mac-address mlag-system-id
+	     vxlan udp-port 4789
+        {% for L3VNI in L3VNI%}
+	     vxlan vrf {{ L3VNI['vrf_id']}} vni {{ L3VNI['vlan_id']}}
+        {% endfor %}
+!
+	  !
+	  ip prefix-list ASU-SUBNETS seq 5 permit 129.219.0.0/16 le 32
+	  ip prefix-list ASU-SUBNETS seq 10 permit 149.169.0.0/16 le 32
+	  ip prefix-list ASU-SUBNETS seq 15 permit 198.60.132.0/24 le 32
+	  ip prefix-list ASU-SUBNETS seq 20 permit 206.206.192.0/18 le 32
+	  ip prefix-list ASU-SUBNETS seq 25 permit 206.206.193.0/24 le 32
+	  ip prefix-list ASU-SUBNETS seq 30 permit 206.206.206.0/24 le 32
+	  ip prefix-list ASU-SUBNETS seq 35 permit 206.207.50.0/24 le 32
+	  ip prefix-list ASU-SUBNETS seq 40 permit 172.16.0.0/12 le 32
+	  ip prefix-list ASU-SUBNETS seq 45 permit 10.0.0.0/8 le 32
+     !
+   mlag configuration
+   domain-id ISTB7-124U1-GW
+   local-interface Vlan4094
+   peer-address {{ mlag_peer}}
+   peer-link Port-Channel155
+   !
+ip virtual-router mac-address 00:1c:73:01:01:00
+!
+service routing protocols model multi-agent
+!
+router bgp {{ asn }}
+!
+   router-id {{ router_id }}
+   bgp bestpath tie-break router-id
+   neighbor LEAF_EVPN peer group
+   neighbor LEAF_EVPN description "Peer Group for All LEAF_EVPN EVPN Nodes"
+   neighbor LEAF_EVPN next-hop-unchanged
+   neighbor LEAF_EVPN graceful-restart-helper
+   neighbor LEAF_EVPN send-community extended
+!
+#for loop to configure bgp neighbor for each leaf
+{% for neighbor in bgp_neighbors %}
+neighbor {{ neighbor['neighbor'] }} peer group LEAF_EVPN
+neighbor {{ neighbor['neighbor'] }}  remote-as {{neighbor['remote_as']}}
+address-family ipv4 
+!
+address-family evpn
+neighbor LEAF_EVPN activate
+!
+address-family ipv4
+neighbor LEAF activate
+neighbor LEAF route-map loopback out
+no neighbor LEAF_EVPN activate
+{% endfor %}
+!
+{% for item in L2VNI %}
+   vrf {{ item.vrf_name }}
+      rd {{ item.loopback0_ip }}:{{ item.vlan_id }}
+      route-target import evpn {{ item.value }}:{{ item.vlan_id }}
+      route-target export evpn {{ item.value }}:{{ item.vni }}
+      redistribute connected
+{% endfor %}
+!
+interface loopback 1
+ip address {{loopback1}}/32
+description VXLAN VTEP
+ip ospf area 0
+!
+interface loopback 0
+ip address {{loopback0}}/32
+ip ospf area 0
+!
+!
+#for loop to enable pim on link to each leaf
+{% for interface in L3_interfaces %}
+interface {{interface['interface']}}
+!
+{% endfor %}
+!
+!
+management api http-commands
+   no shutdown
+   !
+   vrf MGMT
+      no shutdown
+   !
+   vrf default
+      no shutdown
+!
+management console
+   idle-timeout 300

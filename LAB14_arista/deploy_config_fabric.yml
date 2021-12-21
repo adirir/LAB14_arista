@@ -1,0 +1,9 @@
+---
+- name: "Fabric configuration"
+  tasks:
+- name: Push Config from configs Folder
+  eos_config:
+    src: roles/jinja2_spine/files/{{inventory_hostname}}.cfg
+    provider: "{{ eos_provider }}"
+
+

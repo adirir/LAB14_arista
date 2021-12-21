@@ -1,0 +1,11 @@
+---                     
+#Task 2: VLAN configurations
+- hosts: jinja2_leaf
+	tasks:
+		- name: provision VLAN
+		  eos_config:
+		         lines: "vlan {{item}}"
+		         provider: "{{eos_provider}}"
+		          with_items:
+		            -  3600
+		          tags: add vlans

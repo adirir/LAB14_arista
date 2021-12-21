@@ -1,0 +1,92 @@
+aaa authorization exec default local
+!
+no aaa root
+!
+username admin privilege 15 role network-admin secret arista
+!
+vrf instance MGMT
+!
+!
+interface Management1
+   vrf MGMT
+   ip address {{ mgmt_ip }}/24
+!
+ip routing
+no ip routing vrf MGMT
+!
+ip route vrf MGMT 0.0.0.0/0 10.199.199.1
+!
+!
+hostname {{hostname}}
+!
+router ospf 1
+router-id {{router_id}}
+!
+{% for interface, data in interface_eth.items() %}
+interface {{ interface }}
+no switchport
+mtu 9000
+mac-address {{ data['mac'] }}
+ip pim sparse-mode
+ip address {{ data['ip'] }}/{{ data['mask'] }} 
+no shutdown
+bfd interval 300 min-rx 300 multiplier 3
+ip ospf neighbor bfd
+ip ospf network point-to-point
+ip ospf area 0
+{% endfor %}
+!
+!
+router bgp {{ asn }}
+!
+   router-id {{ router_id }}
+   bgp bestpath tie-break router-id
+   neighbor SPINE peer group
+   neighbor LEAF_EVPN peer group
+   neighbor LEAF_EVPN description "Peer Group for All LEAF_EVPN EVPN Nodes"
+   neighbor LEAF_EVPN ebgp-multihop 2
+   neighbor LEAF_EVPN graceful-restart-helper
+   neighbor LEAF_EVPN send-community extended
+!
+#for loop to configure bgp neighbor for each leaf
+{%for bgp, neighbor in bgp_neighbors.items() %}
+neighbor {{ neighbor['neighbor'] }} peer group LEAF_EVPN
+neighbor {{ neighbor['neighbor'] }}  remote-as {{neighbor['remote_as']}}
+!
+address-family evpn
+neighbor LEAF_EVPN activate
+!
+address-family ipv4
+neighbor LEAF activate
+neighbor LEAF route-map loopback out
+no neighbor LEAF_EVPN activate
+!
+{% endfor %}
+!
+interface loopback 1
+ip address {{loopback1}}/32
+ip ospf area 0
+!
+interface loopback 0
+ip address {{loopback0}}/32
+ip ospf area 0
+!
+!
+#for loop to enable pim on link to each leaf
+{% for interface in L3_interfaces %}
+interface {{interface['interface']}}
+!
+{% endfor %}
+!
+!
+management api http-commands
+   no shutdown
+   !
+   vrf MGMT
+      no shutdown
+   !
+   vrf default
+      no shutdown
+!
+management console
+   idle-timeout 300

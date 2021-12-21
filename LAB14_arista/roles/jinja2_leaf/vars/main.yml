@@ -1,0 +1,36 @@
+---
+# vars file for jinja2_spine
+  eos_provider:
+    username: "{{ ansible_user }}"
+    password: "{{ ansible_pwd }}"
+    timeout: 100
+    host: "{{ inventory_hostname }}"
+  rid: router_id
+  asn: 65001
+  bgp_neighbors:
+  -  remote_as: 65000
+     neighbor: 172.31.1.0
+  -  remote_as: 65000
+     neighbor: 172.31.1.2
+  -  remote_as: 65000
+     neighbor: 172.31.1.4
+  -  remote_as: 65000
+     neighbor: 172.31.1.6
+  L3_interfaces:
+  -  interface: Ethernet 1
+  -  interface: Ethernet 2
+  -  interface: Ethernet 3
+  -  interface: loopback 0
+  L3VNI:
+  -  vrf_id: ASU-3600
+     vlan_id: 3600
+  L2VNI:
+  -  vrf_name: ASU-3600
+     loopback0_ip: 10.100.1.252
+     vlan_id: 3600
+     value: 0
+     vni: 10
+
+
+      
+     

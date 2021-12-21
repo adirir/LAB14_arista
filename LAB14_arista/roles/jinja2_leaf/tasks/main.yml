@@ -1,0 +1,12 @@
+---
+# tasks file for spine
+  - name: Generate Spine Config
+    template: src=leaf.j2 dest=roles/jinja2_leaf/files/{{inventory_hostname}}.cfg
+  - name: Push Config from configs Folder
+    eos_config:
+       src: roles/jinja2_leaf/files/{{inventory_hostname}}.cfg
+       replace: 'config'
+       provider: "{{ eos_provider }}"
+  - name: Save configuration to startup config
+    eos_config:
+        save_when: always
